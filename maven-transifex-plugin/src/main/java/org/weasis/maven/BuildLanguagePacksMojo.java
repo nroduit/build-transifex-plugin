@@ -28,7 +28,7 @@ import org.json.simple.parser.ParseException;
  * 
  * @goal buildLanguagePacks
  * 
- * @phase package
+ * @phase process-resources
  */
 public class BuildLanguagePacksMojo extends AbstractMojo {
 
