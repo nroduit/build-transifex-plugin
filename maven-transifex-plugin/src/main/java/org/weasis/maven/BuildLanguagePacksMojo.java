@@ -136,8 +136,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
         }
 
         try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out));
+            BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, "ISO-8859-1"));
+            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out, "ISO-8859-1"));
             String str;
             while ((str = br.readLine()) != null) {
                 int x = 0;
@@ -149,16 +149,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                     y = x + 2;
                 }
                 result.append(str, y, str.length());
-                str = result.toString();
-
-                if (str.indexOf("'',") != -1) {
-                    continue;
-                } else {
-                    // single, non-looped concatenation doesn't matter much
-                    str = str + "\n";
-                    // write result to destination file.
-                    bw.write(str);
-                }
+                result.append("\n");
+                bw.write(result.toString());
             }
             br.close();
             bw.close();
