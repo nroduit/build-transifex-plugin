@@ -69,8 +69,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
 
         if (baseURL != null && outputDirectory != null) {
             getLog().debug("starting build URL from " + baseURL);
-            if (!baseURL.endsWith(File.separator)) {
-                baseURL = baseURL + File.separator;
+            if (!baseURL.endsWith("/")) {
+                baseURL = baseURL + "/";
             }
             outputDirectory.mkdirs();
 
@@ -80,6 +80,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                 URL url = null;
                 try {
                     url = new URL(baseURL + modules[i] + "/?details");
+                    getLog().debug(modules[i] + " URL: " + url.toString());
                 } catch (MalformedURLException e) {
                     getLog().error("Malformed URL: " + baseURL + modules[i] + "/?details");
                 }
@@ -106,6 +107,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                         tsc.setRequestProperty("Authorization", "Basic " + encoding);
                                         uc.addRequestProperty("User-Agent",
                                             "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+                                        getLog().debug("Language URL: " + ts.toString());
                                         writeFile(tsc.getInputStream(), new FileOutputStream(new File(outputDirectory,
                                             "messages_" + code.toString() + ".properties")));
                                     } catch (MalformedURLException e) {
