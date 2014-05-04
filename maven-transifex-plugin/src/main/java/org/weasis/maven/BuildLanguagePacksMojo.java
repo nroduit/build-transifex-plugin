@@ -107,8 +107,12 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                         tsc.addRequestProperty("User-Agent",
                                             "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
                                         getLog().debug("Language URL: " + ts.toString());
-                                        writeFile(tsc.getInputStream(), new FileOutputStream(new File(outputDirectory,
-                                            "messages_" + code.toString() + ".properties")));
+                                        File outFile =
+                                            new File(outputDirectory, "messages_" + code.toString() + ".properties");
+                                        if (writeFile(tsc.getInputStream(), new FileOutputStream(outFile)) == 0) {
+                                            // Do not write file with no translation
+                                            outFile.delete();
+                                        }
                                     } catch (MalformedURLException e) {
                                         getLog().error(
                                             baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
@@ -146,22 +150,26 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, "ISO-8859-1"));
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out, "ISO-8859-1"));
             String str;
+            boolean hasTranslations = false;
             while ((str = br.readLine()) != null) {
-                int x = 0;
-                int y = 0;
-                StringBuilder result = new StringBuilder();
-                while ((x = str.indexOf("\\\\", y)) > -1) {
-                    result.append(str, y, x);
-                    result.append('\\');
-                    y = x + 2;
+                if (hasText(str) && !str.startsWith("#")) {
+                    hasTranslations = true;
+                    int x = 0;
+                    int y = 0;
+                    StringBuilder result = new StringBuilder();
+                    while ((x = str.indexOf("\\\\", y)) > -1) {
+                        result.append(str, y, x);
+                        result.append('\\');
+                        y = x + 2;
+                    }
+                    result.append(str, y, str.length());
+                    result.append("\n");
+                    bw.write(result.toString());
                 }
-                result.append(str, y, str.length());
-                result.append("\n");
-                bw.write(result.toString());
             }
             br.close();
             bw.close();
-            return -1;
+            return hasTranslations ? -1 : 0;
         } catch (IOException e) {
             e.printStackTrace();
             return 0;
@@ -179,5 +187,30 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
         } catch (IOException e) {
             // Do nothing
         }
+    }
+
+    public static boolean hasLength(CharSequence str) {
+        return (str != null && str.length() > 0);
+    }
+
+    public static boolean hasLength(String str) {
+        return hasLength((CharSequence) str);
+    }
+
+    public static boolean hasText(CharSequence str) {
+        if (!hasLength(str)) {
+            return false;
+        }
+        int strLen = str.length();
+        for (int i = 0; i < strLen; i++) {
+            if (!Character.isWhitespace(str.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasText(String str) {
+        return hasText((CharSequence) str);
     }
 }
