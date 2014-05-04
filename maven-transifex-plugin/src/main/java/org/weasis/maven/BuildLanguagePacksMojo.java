@@ -88,7 +88,9 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                     try {
                         URLConnection uc = url.openConnection();
                         uc.setRequestProperty("Authorization", "Basic " + encoding);
-
+                        // Set Mozilla agent otherwise return an error: Server returned HTTP response code: 403 for URL
+                        uc.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+                        getLog().error("" + uc.getPermission());
                         JSONObject json =
                             (JSONObject) parser.parse(new BufferedReader(new InputStreamReader(uc.getInputStream(),
                                 Charset.forName("UTF-8"))));
@@ -102,6 +104,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                             new URL(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
                                         URLConnection tsc = ts.openConnection();
                                         tsc.setRequestProperty("Authorization", "Basic " + encoding);
+                                        uc.addRequestProperty("User-Agent",
+                                            "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
                                         writeFile(tsc.getInputStream(), new FileOutputStream(new File(outputDirectory,
                                             "messages_" + code.toString() + ".properties")));
                                     } catch (MalformedURLException e) {
