@@ -14,6 +14,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
+import java.util.Properties;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -64,6 +65,13 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
      */
     private String[] modules;
 
+    /**
+     * The directory where the list of languages are written.
+     * 
+     * @parameter expression="${transifex.buildLanguagesFile}"
+     */
+    private File buildLanguagesFile;
+
     @Override
     public void execute() throws MojoExecutionException {
 
@@ -77,6 +85,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             String encoding = new String(Base64.encodeBase64(credential.getBytes()));
 
             for (int i = 0; i < modules.length; i++) {
+                StringBuilder lgList = new StringBuilder("en_US");
+                boolean writeAvailableLanguages = buildLanguagesFile != null;
                 URL url = null;
                 try {
                     url = new URL(baseURL + modules[i] + "/?details");
@@ -112,6 +122,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                         if (writeFile(tsc.getInputStream(), new FileOutputStream(outFile)) == 0) {
                                             // Do not write file with no translation
                                             outFile.delete();
+                                        } else if (writeAvailableLanguages) {
+                                            lgList.append("," + code);
                                         }
                                     } catch (MalformedURLException e) {
                                         getLog().error(
@@ -120,6 +132,11 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                 }
 
                             }
+                        }
+                        if (writeAvailableLanguages) {
+                            Properties p = new Properties();
+                            p.setProperty("languages", lgList.toString());
+                            p.store(new FileOutputStream(buildLanguagesFile), null);
                         }
                     } catch (ParseException pe) {
                         getLog().error("JSON parsing error, position: " + pe.getPosition());
