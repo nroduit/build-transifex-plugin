@@ -85,7 +85,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             String encoding = new String(Base64.encodeBase64(credential.getBytes()));
 
             for (int i = 0; i < modules.length; i++) {
-                StringBuilder lgList = new StringBuilder("en_US");
+                StringBuilder lgList = new StringBuilder("en");
                 boolean writeAvailableLanguages = buildLanguagesFile != null;
                 URL url = null;
                 try {
@@ -108,7 +108,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                         for (Object obj : lgs) {
                             if (obj instanceof JSONObject) {
                                 Object code = ((JSONObject) obj).get("code");
-                                if (code != null && !"en_US".equals(code)) {
+                                if (code != null && !"en".equals(code)) {
                                     try {
                                         URL ts =
                                             new URL(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
