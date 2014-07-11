@@ -10,11 +10,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.net.Authenticator;
 import java.net.MalformedURLException;
+import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.util.Properties;
+import java.util.Scanner;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -82,6 +85,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             }
             outputDirectory.mkdirs();
 
+            setProxyAuthentication();
             String encoding = new String(Base64.encodeBase64(credential.getBytes()));
 
             for (int i = 0; i < modules.length; i++) {
@@ -114,6 +118,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                             new URL(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
                                         URLConnection tsc = ts.openConnection();
                                         tsc.setRequestProperty("Authorization", "Basic " + encoding);
+                                        // Set Mozilla agent otherwise return an error: Server returned HTTP response
+                                        // code: 403 for URL
                                         tsc.addRequestProperty("User-Agent",
                                             "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
                                         getLog().debug("Language URL: " + ts.toString());
@@ -130,7 +136,6 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                                             baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
                                     }
                                 }
-
                             }
                         }
                         if (writeAvailableLanguages) {
@@ -150,6 +155,47 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             }
         }
 
+    }
+
+    private static void setProxyAuthentication() {
+        String proxy = System.getProperty("http.proxyHost");
+        if (proxy != null) {
+            URL url;
+            try {
+                url = new URL("http://www.google.com");
+                URLConnection con = url.openConnection();
+                con.getInputStream();
+            } catch (Exception e) {
+                String message = e.getMessage();
+                if (message != null && message.contains("407")) {
+                    String userName = System.getProperty("http.proxyUser", System.getProperty("https.proxyUser"));
+                    if (userName == null) {
+                        System.out.println("Enter the proxy username: ");
+                        userName = new Scanner(System.in).nextLine();
+                    }
+
+                    String userPassword =
+                        System.getProperty("http.proxyPassword", System.getProperty("https.proxyPassword"));
+                    if (userPassword == null) {
+                        System.out.println("Enter the proxy password: ");
+                        userPassword = new Scanner(System.in).nextLine();
+                    }
+
+                    final String authUser = userName;
+                    final String authPassword = userPassword;
+
+                    Authenticator.setDefault(new Authenticator() {
+                        @Override
+                        public PasswordAuthentication getPasswordAuthentication() {
+                            return new PasswordAuthentication(authUser, authPassword.toCharArray());
+                        }
+                    });
+                } else {
+                    e.printStackTrace();
+                }
+            }
+
+        }
     }
 
     /**
@@ -230,4 +276,5 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     public static boolean hasText(String str) {
         return hasText((CharSequence) str);
     }
+
 }
