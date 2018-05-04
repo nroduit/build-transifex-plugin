@@ -16,6 +16,7 @@ import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.Properties;
 import java.util.Scanner;
 
@@ -39,7 +40,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     /**
      * Base URL of the transifex project
      * 
-     * @parameter expression="${transifex.baseURL}"
+     * @parameter property="transifex.baseURL"
      * @required
      */
     private String baseURL;
@@ -47,7 +48,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     /**
      * Credential (username:password) to connect on the transifex WEB API.
      * 
-     * @parameter expression="${transifex.credential}"
+     * @parameter property="transifex.credential"
      * @required
      */
     private String credential;
@@ -55,7 +56,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     /**
      * The directory where files are written.
      * 
-     * @parameter expression="${transifex.outputDirectory}"
+     * @parameter property="transifex.outputDirectory"
      * @required
      */
     private File outputDirectory;
@@ -63,15 +64,22 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     /**
      * List of transifex resources
      * 
-     * @parameter expression="${transifex.modules}"
+     * @parameter property="transifex.modules"
      * @required
      */
     private String[] modules;
 
     /**
+     * List of the final names according to the transifex resources
+     * 
+     * @parameter property="transifex.baseNames"
+     */
+    private String[] baseNames;
+
+    /**
      * The directory where the list of languages are written.
      * 
-     * @parameter expression="${transifex.buildLanguagesFile}"
+     * @parameter property="transifex.buildLanguagesFile"
      */
     private File buildLanguagesFile;
 
@@ -89,7 +97,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
             String encoding = new String(Base64.encodeBase64(credential.getBytes()));
 
             for (int i = 0; i < modules.length; i++) {
-                StringBuilder lgList = new StringBuilder("en");
+             
                 boolean writeAvailableLanguages = buildLanguagesFile != null;
                 URL url = null;
                 try {
@@ -99,50 +107,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                     getLog().error("Malformed URL: " + baseURL + modules[i] + "/?details");
                 }
                 if (url != null) {
-                    JSONParser parser = new JSONParser();
                     try {
-                        URLConnection uc = url.openConnection();
-                        uc.setRequestProperty("Authorization", "Basic " + encoding);
-                        // Set Mozilla agent otherwise return an error: Server returned HTTP response code: 403 for URL
-                        uc.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
-                        JSONObject json =
-                            (JSONObject) parser.parse(new BufferedReader(new InputStreamReader(uc.getInputStream(),
-                                Charset.forName("UTF-8"))));
-                        JSONArray lgs = (JSONArray) json.get("available_languages");
-                        for (Object obj : lgs) {
-                            if (obj instanceof JSONObject) {
-                                Object code = ((JSONObject) obj).get("code");
-                                if (code != null && !"en".equals(code)) {
-                                    try {
-                                        URL ts =
-                                            new URL(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
-                                        URLConnection tsc = ts.openConnection();
-                                        tsc.setRequestProperty("Authorization", "Basic " + encoding);
-                                        // Set Mozilla agent otherwise return an error: Server returned HTTP response
-                                        // code: 403 for URL
-                                        tsc.addRequestProperty("User-Agent",
-                                            "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
-                                        getLog().debug("Language URL: " + ts.toString());
-                                        File outFile =
-                                            new File(outputDirectory, "messages_" + code.toString() + ".properties");
-                                        if (writeFile(tsc.getInputStream(), new FileOutputStream(outFile)) == 0) {
-                                            // Do not write file with no translation
-                                            outFile.delete();
-                                        } else if (writeAvailableLanguages) {
-                                            lgList.append("," + code);
-                                        }
-                                    } catch (MalformedURLException e) {
-                                        getLog().error(
-                                            baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
-                                    }
-                                }
-                            }
-                        }
-                        if (writeAvailableLanguages) {
-                            Properties p = new Properties();
-                            p.setProperty("languages", lgList.toString());
-                            p.store(new FileOutputStream(buildLanguagesFile), null);
-                        }
+                        download(url, encoding, writeAvailableLanguages, i);
                     } catch (ParseException pe) {
                         getLog().error("JSON parsing error, position: " + pe.getPosition());
                         getLog().error(pe);
@@ -157,14 +123,64 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
 
     }
 
-    private static void setProxyAuthentication() {
+    private void download(URL url, String encoding, boolean writeAvailableLanguages, int i) throws IOException, ParseException {
+        StringBuilder lgList = new StringBuilder("en");
+        JSONParser parser = new JSONParser();
+        URLConnection uc = url.openConnection();
+        uc.setRequestProperty("Authorization", "Basic " + encoding);
+        // Set Mozilla agent otherwise return an error: Server returned HTTP response code: 403 for URL
+        uc.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+        try (BufferedReader bufReader =
+            new BufferedReader(new InputStreamReader(uc.getInputStream(), Charset.forName("UTF-8")))) {
+            JSONObject json = (JSONObject) parser.parse(bufReader);
+            JSONArray lgs = (JSONArray) json.get("available_languages");
+            for (Object obj : lgs) {
+                if (obj instanceof JSONObject) {
+                    Object code = ((JSONObject) obj).get("code");
+                    if (code != null && !"en".equals(code)) {
+                        try {
+                            URL ts = new URL(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
+                            URLConnection tsc = ts.openConnection();
+                            tsc.setRequestProperty("Authorization", "Basic " + encoding);
+                            // Set Mozilla agent otherwise return an error: Server returned HTTP
+                            // response
+                            // code: 403 for URL
+                            tsc.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+                            getLog().debug("Language URL: " + ts.toString());
+
+                            String finalName = "messages";
+                            if (baseNames != null && baseNames.length > i) {
+                                finalName = baseNames[i];
+                            }
+
+                            File outFile = new File(outputDirectory, finalName + "_" + code.toString() + ".properties");
+                            if (writeFile(tsc.getInputStream(), new FileOutputStream(outFile)) == 0) {
+                                // Do not write file with no translation
+                                Files.delete(outFile.toPath());
+                            } else if (writeAvailableLanguages) {
+                                lgList.append("," + code);
+                            }
+                        } catch (MalformedURLException e) {
+                            getLog().error(baseURL + modules[i] + "/translation/" + code.toString() + "/?file");
+                        }
+                    }
+                }
+            }
+        }
+        if (writeAvailableLanguages) {
+            Properties p = new Properties();
+            p.setProperty("languages", lgList.toString());
+            try (FileOutputStream out = new FileOutputStream(buildLanguagesFile)) {
+                p.store(out, null);
+            }
+        }
+    }
+
+    private void setProxyAuthentication() {
         String proxy = System.getProperty("http.proxyHost");
         if (proxy != null) {
-            URL url;
-            try {
-                url = new URL("http://www.google.com");
-                URLConnection con = url.openConnection();
-                con.getInputStream();
+            try (InputStream in = new URL("http://www.google.com").openConnection().getInputStream()) {
+                getLog().debug("Can access to http://www.google.com");
             } catch (Exception e) {
                 String message = e.getMessage();
                 if (message != null && message.contains("407")) {
@@ -191,10 +207,9 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                         }
                     });
                 } else {
-                    e.printStackTrace();
+                    getLog().error(e);
                 }
             }
-
         }
     }
 
@@ -204,14 +219,13 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
      * @return bytes transferred. O = error, -1 = all bytes has been transferred, other = bytes transferred before
      *         interruption
      */
-    public static int writeFile(InputStream inputStream, OutputStream out) {
+    public int writeFile(InputStream inputStream, OutputStream out) {
         if (inputStream == null || out == null) {
             return 0;
         }
 
-        try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, "ISO-8859-1"));
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out, "ISO-8859-1"));
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, "ISO-8859-1"));
+                        BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out, "ISO-8859-1"))) {
             String str;
             boolean hasTranslations = false;
             while ((str = br.readLine()) != null) {
@@ -230,15 +244,10 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
                     bw.write(result.toString());
                 }
             }
-            br.close();
-            bw.close();
             return hasTranslations ? -1 : 0;
         } catch (IOException e) {
-            e.printStackTrace();
+            getLog().error(e);
             return 0;
-        } finally {
-            safeClose(inputStream);
-            safeClose(out);
         }
     }
 
