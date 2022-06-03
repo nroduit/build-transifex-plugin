@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.weasis.maven</groupId>
 	<artifactId>build-transifex-plugin</artifactId>
-	<version>1.0.1</version>
+	<version>1.1.0</version>
 	<packaging>maven-plugin</packaging>
 	<name>Transifex Maven Plugin</name>
 
@@ -22,12 +22,13 @@
 		<dependency>
 			<groupId>org.apache.maven</groupId>
 			<artifactId>maven-plugin-api</artifactId>
-			<version>3.6.3</version>
+			<version>3.8.5</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.googlecode.json-simple</groupId>
-			<artifactId>json-simple</artifactId>
-			<version>1.1.1</version>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20220320</version>
 		</dependency>
 	</dependencies>
 
@@ -36,9 +37,9 @@
 			<plugins>
 				<plugin>
 					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.9.0</version>
 					<configuration>
-						<source>1.8</source>
-						<target>1.8</target>
+						<release>11</release>
 					</configuration>
 				</plugin>
 			</plugins>
@@ -47,7 +48,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-plugin-plugin</artifactId>
-				<version>3.6.0</version>
+				<version>3.6.4</version>
 				<configuration>
 					<goalPrefix>build-transifex</goalPrefix>
 				</configuration>
@@ -63,7 +64,19 @@
 			</plugin>
 			<plugin>
 				<artifactId>maven-deploy-plugin</artifactId>
-				<version>3.0.0-M1</version>
+				<version>3.0.0-M2</version>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
