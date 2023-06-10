@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009-2019 Nicolas Roduit and other contributors.
+ * Copyright (c) 2009-2023 Nicolas Roduit and other contributors.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -33,10 +33,12 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Scanner;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -44,72 +46,59 @@ import org.json.JSONTokener;
 /**
  * Goal capable of downloading translation files for building weasis-i18n.
  *
- * @goal buildLanguagePacks
- * @phase process-resources
  */
+
+
+@Mojo(name = "buildLanguagePacks", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
 public class BuildLanguagePacksMojo extends AbstractMojo {
 
   /**
    * Base URL of the transifex project
-   *
-   * @parameter property="transifex.baseURL"
-   * @required
    */
+  @Parameter(property = "transifex.baseURL", defaultValue = "https://rest.api.transifex.com/", required = true)
   private String baseURL;
 
   /**
    * The organization name
-   *
-   * @parameter property="transifex.organization"
-   * @required
    */
+  @Parameter(property = "transifex.organization", required = true)
   private String organization;
 
   /**
    * The project name
-   *
-   * @parameter property="transifex.project"
-   * @required
    */
+  @Parameter(property = "transifex.project", required = true)
   private String project;
 
   /**
    * Token to connect on the transifex WEB API. You can generate one at
    * https://www.transifex.com/user/settings/api/
-   *
-   * @parameter property="transifex.token"
-   * @required
    */
+  @Parameter(property = "transifex.token", required = true)
   private String token;
 
   /**
    * The directory where files are written.
-   *
-   * @parameter property="transifex.outputDirectory"
-   * @required
    */
+  @Parameter(property = "transifex.outputDirectory", required = true)
   private File outputDirectory;
 
   /**
    * List of transifex resources
-   *
-   * @parameter property="transifex.modules"
-   * @required
    */
+  @Parameter(property = "transifex.modules", required = true)
   private String[] modules;
 
   /**
    * List of the final names according to the transifex resources
-   *
-   * @parameter property="transifex.baseNames"
    */
+  @Parameter(property = "transifex.baseNames")
   private String[] baseNames;
 
   /**
    * The directory where the list of languages are written.
-   *
-   * @parameter property="transifex.buildLanguagesFile"
    */
+  @Parameter(property = "transifex.buildLanguagesFile")
   private File buildLanguagesFile;
 
   public static boolean hasLength(CharSequence str) {
@@ -135,7 +124,6 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
 
   @Override
   public void execute() throws MojoExecutionException {
-
     if (baseURL != null && outputDirectory != null) {
       getLog().debug("starting build URL from " + baseURL);
       if (!baseURL.endsWith("/")) {
@@ -146,7 +134,6 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
       setProxyAuthentication();
 
       for (int i = 0; i < modules.length; i++) {
-
         boolean writeAvailableLanguages = buildLanguagesFile != null;
         URL projectLanguagesUrl = null;
         try {
@@ -241,10 +228,10 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
       }
     }
     if (writeAvailableLanguages) {
-      Properties p = new Properties();
-      p.setProperty("languages", lgList.toString());
+      getLog().info("languages: " + lgList);
       try (FileOutputStream out = new FileOutputStream(buildLanguagesFile)) {
-        p.store(out, null);
+        out.write("languages=".getBytes(StandardCharsets.UTF_8));
+        out.write(lgList.toString().getBytes(StandardCharsets.UTF_8));
       }
     }
   }
