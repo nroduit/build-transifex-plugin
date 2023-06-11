@@ -45,10 +45,7 @@ import org.json.JSONTokener;
 
 /**
  * Goal capable of downloading translation files for building weasis-i18n.
- *
  */
-
-
 @Mojo(name = "buildLanguagePacks", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
 public class BuildLanguagePacksMojo extends AbstractMojo {
 
@@ -230,8 +227,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     if (writeAvailableLanguages) {
       getLog().info("languages: " + lgList);
       try (FileOutputStream out = new FileOutputStream(buildLanguagesFile)) {
-        out.write("languages=".getBytes(StandardCharsets.UTF_8));
-        out.write(lgList.toString().getBytes(StandardCharsets.UTF_8));
+        out.write("languages=".getBytes(StandardCharsets.ISO_8859_1));
+        out.write(lgList.toString().getBytes(StandardCharsets.ISO_8859_1));
       }
     }
   }
@@ -338,7 +335,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
    * @param inputStream
    * @param out
    * @return bytes transferred. O = error, -1 = all bytes has been transferred, other = bytes
-   *     transferred before interruption
+   * transferred before interruption
    */
   public int writeFile(InputStream inputStream, OutputStream out) {
     if (inputStream == null || out == null) {
@@ -346,7 +343,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     }
 
     try (BufferedReader br =
-            new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.ISO_8859_1));
+        new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.ISO_8859_1));
         BufferedWriter bw =
             new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.ISO_8859_1))) {
       String str;
