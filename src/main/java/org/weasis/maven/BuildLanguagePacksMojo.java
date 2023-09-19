@@ -206,7 +206,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
 
               URL file = getDownloadURL(response.body());
               if (file != null) {
-                String lg = code.toString().substring(2);
+                String lg = code.toString().substring(2).replace("-", "_");
                 URLConnection uc2 = file.openConnection();
                 uc2.setRequestProperty("Authorization", "Bearer " + this.token);
                 File outFile = new File(outputDirectory, finalName + "_" + lg + ".properties");
@@ -295,7 +295,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
   private void setProxyAuthentication() {
     String proxy = System.getProperty("http.proxyHost");
     if (proxy != null) {
-      try (InputStream in = new URL("https://www.google.com").openConnection().getInputStream()) {
+      try (InputStream ignored = new URL("https://www.google.com").openConnection().getInputStream()) {
         getLog().debug("Can access to https://www.google.com");
       } catch (Exception e) {
         String message = e.getMessage();
@@ -332,8 +332,8 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
   }
 
   /**
-   * @param inputStream
-   * @param out
+   * @param inputStream the input stream to read from
+   * @param out the output stream to write to
    * @return bytes transferred. O = error, -1 = all bytes has been transferred, other = bytes
    * transferred before interruption
    */
