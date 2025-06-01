@@ -44,7 +44,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 /**
- * Goal capable of downloading translation files for building weasis-i18n.
+ * A Maven Mojo for downloading language translation files for building weasis-i18n.
  */
 @Mojo(name = "buildLanguagePacks", defaultPhase = LifecyclePhase.PROCESS_RESOURCES)
 public class BuildLanguagePacksMojo extends AbstractMojo {
@@ -99,7 +99,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
   private File buildLanguagesFile;
 
   public static boolean hasLength(CharSequence str) {
-    return (str != null && str.length() > 0);
+    return (str != null && !str.isEmpty());
   }
 
   public static boolean hasText(CharSequence str) {
@@ -155,6 +155,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
 
   private void download(URL url, boolean writeAvailableLanguages, int i) throws IOException {
     StringBuilder lgList = new StringBuilder("en");
+    StringBuilder percentageList = new StringBuilder("en.100");
     URLConnection uc = url.openConnection();
     uc.setRequestProperty("Authorization", getAuthorization());
     try (BufferedReader bufReader =
@@ -163,58 +164,58 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
       JSONObject object = new JSONObject(tokener);
       JSONArray lgs = object.getJSONArray("data");
       for (Object obj : lgs) {
-        if (obj instanceof JSONObject) {
-          Object code = ((JSONObject) obj).get("id");
+        if (obj instanceof JSONObject jsonObject) {
+          Object code = jsonObject.get("id");
           if (code != null) {
             try {
-              String playLoad =
-                  String.format(
-                      "{\n"
-                          + "  \"data\": {\n"
-                          + "    \"attributes\": {\n"
-                          + "      \"callback_url\": null,\n"
-                          + "      \"content_encoding\": \"text\",\n"
-                          + "      \"file_type\": \"default\",\n"
-                          + "      \"mode\": \"default\",\n"
-                          + "      \"pseudo\": false\n"
-                          + "    },\n"
-                          + "    \"relationships\": {\n"
-                          + "      \"language\": {\n"
-                          + "        \"data\": {\n"
-                          + "          \"id\": \"%s\",\n"
-                          + "          \"type\": \"languages\"\n"
-                          + "        }\n"
-                          + "      },\n"
-                          + "      \"resource\": {\n"
-                          + "        \"data\": {\n"
-                          + "          \"id\": \"o:%s:p:%s:r:%s\",\n"
-                          + "          \"type\": \"resources\"\n"
-                          + "        }\n"
-                          + "      }\n"
-                          + "    },\n"
-                          + "    \"type\": \"resource_translations_async_downloads\"\n"
-                          + "  }\n"
-                          + "}",
-                      code, organization, project, modules[i]);
-              HttpResponse<String> response =
-                  postJSON(new URI(baseURL + "resource_translations_async_downloads"), playLoad);
+              String playLoad = """
+                  {
+                    "data": {
+                      "attributes": {
+                        "callback_url": null,
+                        "content_encoding": "text",
+                        "file_type": "default",
+                        "mode": "default",
+                        "pseudo": false
+                      },
+                      "relationships": {
+                        "language": {
+                          "data": {
+                            "id": "%s",
+                            "type": "languages"
+                          }
+                        },
+                        "resource": {
+                          "data": {
+                            "id": "o:%s:p:%s:r:%s",
+                            "type": "resources"
+                          }
+                        }
+                      },
+                      "type": "resource_translations_async_downloads"
+                    }
+                  }""".formatted(code, organization, project, modules[i]);
 
-              String finalName = "messages";
-              if (baseNames != null && baseNames.length > i) {
-                finalName = baseNames[i];
-              }
+              HttpResponse<String> response = postJSON(
+                  new URI(baseURL + "resource_translations_async_downloads"), playLoad);
+
+              String finalName =
+                  (baseNames != null && baseNames.length > i) ? baseNames[i] : "messages";
 
               URL file = getDownloadURL(response.body());
               if (file != null) {
                 String lg = code.toString().substring(2).replace("-", "_");
                 URLConnection uc2 = file.openConnection();
                 uc2.setRequestProperty("Authorization", "Bearer " + this.token);
-                File outFile = new File(outputDirectory, finalName + "_" + lg + ".properties");
+                File outFile = new File(outputDirectory,
+                    "%s_%s.properties".formatted(finalName, lg));
                 if (writeFile(uc2.getInputStream(), new FileOutputStream(outFile)) == 0) {
                   // Do not write file with no translation
                   Files.delete(outFile.toPath());
                 } else if (writeAvailableLanguages) {
                   lgList.append(",").append(lg);
+                  int percentage = fetchStatsForAllResourcesOfLanguage(code.toString());
+                  percentageList.append(",").append(lg).append(".").append(percentage);
                 }
               }
             } catch (Exception e) {
@@ -229,8 +230,71 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
       try (FileOutputStream out = new FileOutputStream(buildLanguagesFile)) {
         out.write("languages=".getBytes(StandardCharsets.ISO_8859_1));
         out.write(lgList.toString().getBytes(StandardCharsets.ISO_8859_1));
+        out.write("\npercentages=".getBytes(StandardCharsets.ISO_8859_1));
+        out.write(percentageList.toString().getBytes(StandardCharsets.ISO_8859_1));
       }
     }
+  }
+
+  /**
+   * Fetches statistics for the current project, such as completion percentages for translations.
+   */
+/**
+ * Fetches resource language statistics for the current project, such as completion percentages for translations.
+ */
+/**
+ * Fetches resource statistics for all resources of a specific language in the given project.
+ *
+ * @param language The language identifier (e.g., "en", "fr").
+ */
+private int fetchStatsForAllResourcesOfLanguage(String language) {
+    try {
+        // Construct the request URL with filters for the project and language
+        String statsUrl = "%sresource_language_stats?filter[language]=%s&filter[project]=o:%s:p:%s"
+                .formatted(baseURL, language, organization, project);
+      URI uri = new URI(statsUrl);
+
+        getLog().info("Fetching resource stats for language: " + language + " from: " + statsUrl);
+
+      // Create a GET request
+      HttpRequest request = HttpRequest.newBuilder(uri)
+          .header("Authorization", getAuthorization())
+          .GET()
+          .build();
+
+      // Fetch the response
+      HttpResponse<String> response = HttpClient.newHttpClient().send(request, BodyHandlers.ofString());
+
+      if (response.statusCode() == 200) {
+            JSONObject statsResponse = new JSONObject(response.body());
+
+            int t = 0;
+            int u = 0;
+            // Parse and log stats for all resources
+            JSONArray resourceStats = statsResponse.getJSONArray("data");
+            StringBuilder statsDetails = new StringBuilder("Resource Stats for language: " + language + "\n");
+            for (Object obj : resourceStats) {
+                if (obj instanceof JSONObject jsonObj) {
+                    JSONObject attributes = jsonObj.getJSONObject("attributes");
+                    String resourceId = jsonObj.getJSONObject("relationships").getJSONObject("resource")
+                            .getJSONObject("data").getString("id");
+                    t +=  attributes.getInt("translated_strings");;
+                    u += attributes.getInt("untranslated_strings");
+
+
+                }
+            }
+
+            // Output all stats for the language
+            getLog().info(statsDetails.toString());
+            return  (int) ((t / (double) (t + u)) * 100);
+      } else {
+            getLog().error("Failed to fetch stats for language: " + language + ". HTTP Status: " + response.statusCode());
+      }
+    } catch (Exception e) {
+        getLog().error("Error while fetching stats for all resources of a language", e);
+    }
+    return 0;
   }
 
   private String getAuthorization() {
@@ -263,7 +327,7 @@ public class BuildLanguagePacksMojo extends AbstractMojo {
     JSONObject data = new JSONObject(response).getJSONObject("data");
     String id = data.getString("id");
     String link = baseURL + "resource_translations_async_downloads/" + id;
-    for (int retry = 0; retry < 20; ++retry) {
+    for (int retry = 0; retry < 10; ++retry) {
       try {
         HttpResponse<String> fileResponse = getFile(link);
         if (fileResponse.statusCode() == 303) {
